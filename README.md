@@ -105,7 +105,10 @@ $sandwich->toppings = [
 ];
 ```
 
-Combining this all together requires us to create a Loafpan class
+Finally, applying all this, create a Loafpan instance with a directory in which it can scribble php files and
+call `expand` with the class you want to expand into, in our case `Sandwich` and the user input.
+
+The following example shows this usage
 
 ```php
 $loafpan = new Loafpan($yourLoafpanCacheDirectory);
@@ -124,9 +127,9 @@ foreach ($sandwich->toppping as $topping) {
 }
 ```
 
-If the options given here doesn't give you enough flexibility, you can always implement your own expander. Just
-implement `UnitExpander` (`\Yeast\Loafpan\UnitExpander`) on a class and either register it to loafpan by using
-the `registerExpander` function on a Loafpan instance or set the `expander` parameter on the `Unit` attribute
+If the options given here doesn't give you enough flexibility, you can always implement your own expander by
+implementing `UnitExpander` (`\Yeast\Loafpan\UnitExpander`) on a class and either registering it to loafpan by using
+the `registerExpander` function on a Loafpan instance or setting the `expander` parameter on the `Unit` attribute
 
 See [src/Expander](src/Expander) for some examples of custom UnitExpanders
 
