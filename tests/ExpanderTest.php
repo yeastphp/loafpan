@@ -13,6 +13,7 @@ use Yeast\Test\Loafpan\Unit\AcceptMultipleUnits;
 use Yeast\Test\Loafpan\Unit\CustomExpander;
 use Yeast\Test\Loafpan\Unit\CustomNames;
 use Yeast\Test\Loafpan\Unit\InvalidUnit;
+use Yeast\Test\Loafpan\Unit\PureOptional;
 use Yeast\Test\Loafpan\Unit\Sandwich;
 use Yeast\Test\Loafpan\Unit\SelfConsumingUnit;
 use Yeast\Test\Loafpan\Unit\SetterAndConstructor;
@@ -166,5 +167,10 @@ class ExpanderTest extends TestCase {
         $newLoafpan = new Loafpan($this->loafpan->getCacheDirectory());
         $expander   = $newLoafpan->getExpander(CustomExpander::class);
         $this->assertInstanceOf(CustomExpanderExpander::class, $expander);
+    }
+
+    public function testPureOptional() {
+        $v = $this->loafpan->expandInto(['gamer' => 4], PureOptional::class);
+        $this->assertEquals(4, $v->getGamer());
     }
 }

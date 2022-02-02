@@ -128,8 +128,9 @@ class ExpanderGenerator {
                 $attr      = ($attrs[0])->newInstance();
                 $fieldName = $attr->name ?? $parameter->getName();
 
+                $this->constructorIsUniqueExpander = true;
+
                 if ( ! $parameter->isOptional()) {
-                    $this->constructorIsUniqueExpander = true;
                     $this->requiredProperties[]        = $fieldName;
                 }
 
