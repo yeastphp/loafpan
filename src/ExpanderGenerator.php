@@ -48,7 +48,7 @@ class ExpanderGenerator {
      */
     public function __construct(private string $className, private Loafpan $loafpan) {
         $this->reflection        = new ReflectionClass($this->className);
-        $this->expanderClassName = static::createGeneratedClassName($this->className);
+        $this->expanderClassName = static::createGeneratedClassName($this->className, $this->loafpan->getCasing());
     }
 
     public function collectUnit(): void {
@@ -126,12 +126,12 @@ class ExpanderGenerator {
 
                 /** @var Field $attr */
                 $attr      = ($attrs[0])->newInstance();
-                $fieldName = $attr->name ?? $parameter->getName();
+                $fieldName = $attr->name ?? $this->loafpan->getFieldName($parameter->getName(), $this->unit);
 
                 $this->constructorIsUniqueExpander = true;
 
                 if ( ! $parameter->isOptional()) {
-                    $this->requiredProperties[]        = $fieldName;
+                    $this->requiredProperties[] = $fieldName;
                 }
 
                 $types = $this->getParameterTypes($parameter);
@@ -299,8 +299,8 @@ class ExpanderGenerator {
         $this->collectSetters();
     }
 
-    public static function createGeneratedClassName(string $className): string {
-        $crc = substr(dechex(crc32($className)) . '0000', 0, 4);
+    public static function createGeneratedClassName(string $className, ?string $casing = null): string {
+        $crc = substr(dechex(crc32($className . '.' . ($casing ?? 'default'))) . '0000', 0, 4);
 
         return 'UnitExpander_' . $crc . '_' . str_replace('\\', '_', $className);
     }
@@ -724,7 +724,7 @@ class ExpanderGenerator {
             }
 
             foreach ($this->setters as $setter) {
-                $props[$setter->field->name ?: $setter->inputName] = [$setter->types, $setter->field->description];
+                $props[$setter->field->name ?: $this->loafpan->getFieldName($setter->inputName, $this->unit)] = [$setter->types, $setter->field->description];
             }
 
             foreach ($props as $key => [$types, $description]) {
@@ -911,7 +911,7 @@ class ExpanderGenerator {
     }
 
     private function getFieldMatcher(array $types, string $fieldName, bool $optional, Field $field): string {
-        $phpFieldName = var_export($field->name ?: $fieldName, true);
+        $phpFieldName = var_export($field->name ?: $this->loafpan->getFieldName($fieldName, $this->unit), true);
 
         $simpleChecks = [];
         $unitChecks   = [];
@@ -991,7 +991,7 @@ class ExpanderGenerator {
     }
 
     private function generateFieldExpansionCode(array $types, string $name, Field $field, ?callable $assign = null, bool $optional = false, ?string $defaultValue = null, ?string &$preBlock = null): string {
-        $phpFieldName      = var_export($field->name ?: $name, true);
+        $phpFieldName      = var_export($field->name ?: $this->loafpan->getFieldName($name, $this->unit), true);
         $parameterVariable = '$input[' . $phpFieldName . ']';
 
         $complex = $this->hasComplex($types);

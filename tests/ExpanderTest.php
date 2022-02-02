@@ -18,7 +18,9 @@ use Yeast\Test\Loafpan\Unit\Sandwich;
 use Yeast\Test\Loafpan\Unit\SelfConsumingUnit;
 use Yeast\Test\Loafpan\Unit\SetterAndConstructor;
 use Yeast\Test\Loafpan\Unit\SetterOnly;
+use Yeast\Test\Loafpan\Unit\SnakeCase;
 use Yeast\Test\Loafpan\Unit\Topping;
+use Yeast\Test\Loafpan\Unit\Wow;
 
 
 class ExpanderTest extends TestCase {
@@ -172,5 +174,23 @@ class ExpanderTest extends TestCase {
     public function testPureOptional() {
         $v = $this->loafpan->expandInto(['gamer' => 4], PureOptional::class);
         $this->assertEquals(4, $v->getGamer());
+    }
+
+    public function testCasing() {
+        $this->assertFalse($this->loafpan->validate(SnakeCase::class, ['niceGamer' => "hello!"]));
+        $this->assertTrue($this->loafpan->validate(SnakeCase::class, ['nice_gamer' => "hello!"]));
+
+        /** @var SnakeCase $v */
+        $v = $this->loafpan->expand(SnakeCase::class, ['nice_gamer' => 'Hello!']);
+        $this->assertEquals('Hello!', $v->niceGamer);
+
+        $this->assertTrue($this->loafpan->validate(Wow::class, ['longWord' => 4]));
+        $lf = new Loafpan($this->loafpan->getCacheDirectory(), casing: 'kebab-case');
+        $this->assertFalse($lf->validate(Wow::class, ['longWord' => 4]));
+        $this->assertTrue($lf->validate(Wow::class, ['long-word' => 4]));
+
+        // Shouldn't override unit specific casing's
+        $this->assertFalse($lf->validate(SnakeCase::class, ['nice-gamer' => "hello!"]));
+        $this->assertTrue($lf->validate(SnakeCase::class, ['nice_gamer' => "hello!"]));
     }
 }

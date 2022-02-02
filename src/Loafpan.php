@@ -4,6 +4,8 @@ namespace Yeast\Loafpan;
 
 use DateTime;
 use DateTimeImmutable;
+use Jawira\CaseConverter\Convert;
+use JetBrains\PhpStorm\ExpectedValues;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use ReflectionClass;
@@ -24,6 +26,7 @@ class Loafpan {
      * @param  bool  $autoUpdate  Check if a class was updated between now and when the last cache item was written
      * @param  bool  $ignoreCache  Ignore any cache available and generate all on demand
      * @param  bool  $useDefaultExpanders  Include default expanders (these can be found in Loafpan::getDefaultExpanders)
+     * @param  string|null  $casing  Which type of camel casing the input will have
      */
     public function __construct(
       private string $cacheDirectory,
@@ -31,6 +34,8 @@ class Loafpan {
       private bool $autoUpdate = true,
       private bool $ignoreCache = false,
       bool $useDefaultExpanders = true,
+      #[ExpectedValues(['camelCase', 'PascalCase', 'snake_case', 'Ada_Case', 'MACRO_CASE', 'kebab-case', 'Train-Case', 'COBOL-CASE', 'lower case', 'UPPER CASE', 'Title Case', 'Sentence case', 'dot.notation', null])]
+      private ?string $casing = null,
     ) {
         if ($useDefaultExpanders) {
             $this->registeredExpanders = static::getDefaultExpanders($this);
@@ -53,6 +58,33 @@ class Loafpan {
      */
     public function registerExpander(string $className, UnitExpander $expander) {
         $this->registeredExpanders[$className] = $expander;
+    }
+
+    public function getFieldName(string $name, ?Unit $unit) {
+        $casing = $unit?->casing ?: $this->casing;
+
+        if ($casing === null) {
+            return $name;
+        }
+
+        $n = new Convert($name);
+
+        return match ($casing) {
+            'camelCase' => $n->toCamel(),
+            'PascalCase' => $n->toPascal(),
+            'snake_case' => $n->toSnake(),
+            'Ada_Case' => $n->toAda(),
+            'MACRO_CASE' => $n->toMacro(),
+            'kebab-case' => $n->toKebab(),
+            'Train-Case' => $n->toTrain(),
+            'COBOL-CASE' => $n->toCobol(),
+            'lower case' => $n->toLower(),
+            'UPPER CASE' => $n->toUpper(),
+            'Title Case' => $n->toTitle(),
+            'Sentence case' => $n->toSentence(),
+            'dot.notation' => $n->toDot(),
+            default => throw new RuntimeException("No casing method known by " . $casing),
+        };
     }
 
     /**
@@ -218,7 +250,7 @@ class Loafpan {
     private function createExpander(string $className): UnitExpander {
         $expanderClass = self::$knownCustomExpanders[$className] ?? null;
         if ($expanderClass === null) {
-            $name = ExpanderGenerator::createGeneratedClassName($className);
+            $name = ExpanderGenerator::createGeneratedClassName($className, $this->casing);
 
             $sourceChangeTime = false;
             if ($this->autoGenerate && $this->autoUpdate) {
@@ -371,5 +403,9 @@ class Loafpan {
         }
 
         return true;
+    }
+
+    public function getCasing(): ?string {
+        return $this->casing;
     }
 }
