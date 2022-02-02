@@ -51,7 +51,7 @@ class ExpanderGenerator {
         $this->expanderClassName = static::createGeneratedClassName($this->className);
     }
 
-    public function collectUnit() {
+    public function collectUnit(): void {
         $attributes = $this->reflection->getAttributes(Unit::class);
 
         if (count($attributes) !== 1) {
@@ -67,7 +67,7 @@ class ExpanderGenerator {
     /**
      * @throws ReflectionException
      */
-    public function collectExpanders() {
+    public function collectExpanders(): void {
         foreach ($this->reflection->getMethods() as $method) {
             $attributes = $method->getAttributes(Expander::class);
 
@@ -161,12 +161,12 @@ class ExpanderGenerator {
         }
     }
 
-    public function collectSetters() {
+    public function collectSetters(): void {
         $this->collectPropertySetters();
         $this->collectMethodSetters();
     }
 
-    public function collectPropertySetters() {
+    public function collectPropertySetters(): void {
         $properties = $this->reflection->getProperties();
 
         foreach ($properties as $property) {
@@ -237,7 +237,7 @@ class ExpanderGenerator {
         return $reasons;
     }
 
-    private function collectMethodSetters() {
+    private function collectMethodSetters(): void {
         $methods = $this->reflection->getMethods();
 
         foreach ($methods as $method) {
@@ -292,7 +292,7 @@ class ExpanderGenerator {
     /**
      * @throws ReflectionException
      */
-    public function collectInfo() {
+    public function collectInfo(): void {
         $this->collectUnit();
         $this->collectExpanders();
         $this->collectSetters();
@@ -697,7 +697,7 @@ class ExpanderGenerator {
         return "/**\n * Matchers for the function $this->className::$expander->name\n */\n" . implode("\n\n", $code);
     }
 
-    private function getGenericArray() {
+    private function getGenericArray(): string {
         $entries = [];
 
         $i = 0;
@@ -889,7 +889,7 @@ class ExpanderGenerator {
         return '$this->matchSetters($input, $generics)';
     }
 
-    private function extractPrimitives(array $types, array $refs, mixed $primitives): array {
+    private function extractPrimitives(array $types, array $refs, array $primitives): array {
         foreach ($types as $type) {
             $prim = JsonSchemaBuilder::getPrimitive($type);
             if ($prim === null) {

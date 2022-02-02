@@ -10,7 +10,7 @@ class JsonSchemaBuilder {
 
     private array $definitions = [];
 
-    public function addDefinition(string $definitionName, array $def) {
+    public function addDefinition(string $definitionName, array $def): void {
         $this->definitions[$definitionName] = $def;
     }
 
