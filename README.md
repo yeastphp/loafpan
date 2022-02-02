@@ -1,5 +1,7 @@
 # Loafpan
 
+[![QA](https://github.com/yeastphp/loafpan/actions/workflows/qa.yml/badge.svg)](https://github.com/yeastphp/loafpan/actions/workflows/qa.yml)
+
 A simple PHP 8 native object expansion (or hydration as some call it) framework
 
 ### Features

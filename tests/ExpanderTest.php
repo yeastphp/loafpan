@@ -2,6 +2,7 @@
 
 namespace Yeast\Test\Loafpan;
 
+use Error;
 use JsonSchema\Validator;
 use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
@@ -27,7 +28,7 @@ class ExpanderTest extends TestCase {
     }
 
     public function testSomething() {
-        $sandwich = $this->loafpan->expand(Sandwich::class . '<' . Topping::class . '<string>>', ['name' => 'gamers', 'topping' => ['gamer']]);
+        $sandwich = $this->loafpan->expandInto(['name' => 'gamers', 'topping' => ['gamer']], Sandwich::class, [Topping::class . '<string>']);
         $this->assertInstanceOf(Sandwich::class, $sandwich);
         $this->assertInstanceOf(Topping::class, $sandwich->topping[0]);
         $this->assertFalse($this->loafpan->validate(Sandwich::class . '<int>', []));
@@ -76,8 +77,7 @@ class ExpanderTest extends TestCase {
 
     public function testJsonSchema() {
         // In a perfect world, I would test this, however this is not a perfect world, and the JsonSchema library dies on objects that are able to be itself (e.g. Object B is described as being Object B)
-        if (false) {
-            /** @noinspection PhpUnreachableStatementInspection */
+        if (defined('MYSTERIES_THING_SO_PHPSTAN_DOESNT_GET_ANGRY')) {
             $schema    = $this->loafpan->jsonSchema(SelfConsumingUnit::class . '<string>');
             $validator = new Validator();
             $v         = (object)['value' => 1];
@@ -96,10 +96,11 @@ class ExpanderTest extends TestCase {
         $setterOnly = $this->loafpan->expand(SetterOnly::class, []);
         $this->assertInstanceOf(SetterOnly::class, $setterOnly);
         $this->assertNull($setterOnly->topping);
-        // Should be uninitialized
+        // Should be uninitialized (phpstan doesnt think it'll be thrown? lol)
         try {
             $_ = $setterOnly->gamer;
-        } catch (\Error $error) {
+            /** @phpstan-ignore-next-line */
+        } catch (Error $error) {
             $this->assertStringContainsString('must not be accessed before initialization', $error->getMessage());
         }
 
@@ -163,7 +164,7 @@ class ExpanderTest extends TestCase {
 
         // Make sure the cache is used
         $newLoafpan = new Loafpan($this->loafpan->getCacheDirectory());
-        $expander = $newLoafpan->getExpander(CustomExpander::class);
+        $expander   = $newLoafpan->getExpander(CustomExpander::class);
         $this->assertInstanceOf(CustomExpanderExpander::class, $expander);
     }
 }

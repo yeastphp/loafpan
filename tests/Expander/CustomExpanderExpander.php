@@ -12,8 +12,8 @@ use Yeast\Test\Loafpan\Unit\CustomExpander;
  * @implements UnitExpander<CustomExpander>
  */
 class CustomExpanderExpander implements UnitExpander {
-    public static function create(Loafpan $loafpan): static {
-        return new static();
+    public static function create(Loafpan $loafpan): UnitExpander {
+        return new self();
     }
 
     public function getGenerics(): array {

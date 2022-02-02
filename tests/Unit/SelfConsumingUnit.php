@@ -20,7 +20,7 @@ class SelfConsumingUnit {
     }
 
     #[Expander(type: SelfConsumingUnit::class . '<int>')]
-    public static function fromSelfInt(self $self): static {
-        return new static((string)$self->value);
+    public static function fromSelfInt(self $self): SelfConsumingUnit {
+        return new SelfConsumingUnit((string)$self->value);
     }
 }

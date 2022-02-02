@@ -23,16 +23,16 @@ class Sandwich {
     }
 
     #[Expander]
-    public static function fromString(string $name): static {
+    public static function fromString(string $name): Sandwich {
         return new Sandwich($name);
     }
 
     #[Expander("Create a sandwich purely from topping", type: 'int|' . Topping::class . '<T>')]
-    public static function fromId(int|Topping $id): static {
+    public static function fromId(int|Topping $id): Sandwich {
         return new Sandwich("$id");
     }
 
     public function __toString(): string {
-        return "Sandwich[$this->name]($this->topping)";
+        return "Sandwich[$this->name](" . implode(", ", $this->topping) . ")";
     }
 }

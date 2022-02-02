@@ -115,14 +115,13 @@ class Loafpan {
     /**
      * Expand user input into a unit by class name, throws on failure
      *
-     * @template T
      *
-     * @param  class-string<T>  $className  The name of the class to expand into, with type variables e.g. `MyClass<int>`
+     * @param  string  $className  The name of the class to expand into, with type variables e.g. `MyClass<int>`
      * @param  mixed  $input  The user input to expand on
      * @param  array  $typeVariables  The type vars from the calling class, e.g. one could ask for `MyClass<T>` and then pass the generic parameters of `["T" => "int"]` and this function will then return `MyClass<int>`
      * @param  array  $path  The path that has been taken to expand this user input, only useful inside expanders
      *
-     * @return T
+     * @return mixed
      */
     public function expand(string $className, mixed $input, array $typeVariables = [], array $path = []): mixed {
         [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
@@ -242,7 +241,7 @@ class Loafpan {
 
             if (is_string($v)) {
                 self::$knownCustomExpanders[$className] = $v;
-                $expanderClass                            = $v;
+                $expanderClass                          = $v;
             } else {
                 $expanderClass = 'Yeast\\Loafpan\\Generated\\' . $name;
             }

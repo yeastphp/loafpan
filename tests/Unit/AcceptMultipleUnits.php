@@ -7,12 +7,12 @@ use Yeast\Loafpan\Attribute\Unit;
 
 
 #[Unit("whoa!")]
-class AcceptMultipleUnits {
+final class AcceptMultipleUnits {
     private function __construct() {
     }
 
     #[Expander(type: Topping::class . '<string>|' . SetterOnly::class)]
-    public static function fromGamers($input): static {
-        return new static();
+    public static function fromGamers($input): AcceptMultipleUnits {
+        return new self();
     }
 }
