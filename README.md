@@ -23,7 +23,7 @@ composer require yeast/loafpan
 ### Very quick use
 
 ```php
-$config      = json_decode($json);
+$config      = json_decode($json, true);
 
 $loafpan     = new Loafpan($loafpanCacheDirectory);
 // Don't forget to annotate your class.
