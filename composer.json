@@ -1,0 +1,35 @@
+{
+  "name": "yeast/loafpan",
+  "description": "Object and config hydration from associative arrays",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "Yeast\\Loafpan\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Yeast\\Test\\Loafpan\\": "tests/"
+    }
+  },
+  "authors": [
+    {
+      "name": "eater",
+      "email": "=@eater.me"
+    }
+  ],
+  "minimum-stability": "stable",
+  "require": {
+    "nette/php-generator": "^3.6",
+    "brick/varexporter": "^0.3.5"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "9.5.13",
+    "ramsey/uuid": ">=4",
+    "justinrainbow/json-schema": "^5.2"
+  },
+  "suggest": {
+    "ramsey/uuid": "Allows parsing of UUID's in units"
+  }
+}

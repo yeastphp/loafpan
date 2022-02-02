@@ -1,0 +1,137 @@
+<?php
+
+namespace Yeast\Test\Loafpan;
+
+use JsonSchema\Validator;
+use PHPUnit\Framework\TestCase;
+use Ramsey\Uuid\Uuid;
+use Ramsey\Uuid\UuidInterface;
+use Yeast\Loafpan\Loafpan;
+use Yeast\Test\Loafpan\Unit\AcceptMultipleUnits;
+use Yeast\Test\Loafpan\Unit\CustomNames;
+use Yeast\Test\Loafpan\Unit\InvalidUnit;
+use Yeast\Test\Loafpan\Unit\Sandwich;
+use Yeast\Test\Loafpan\Unit\SelfConsumingUnit;
+use Yeast\Test\Loafpan\Unit\SetterAndConstructor;
+use Yeast\Test\Loafpan\Unit\SetterOnly;
+use Yeast\Test\Loafpan\Unit\Topping;
+
+
+class ExpanderTest extends TestCase {
+    private Loafpan $loafpan;
+
+    protected function setUp(): void {
+        $this->loafpan = new Loafpan(__DIR__ . "/../var/cache", ignoreCache: true);
+    }
+
+    public function testSomething() {
+        $sandwich = $this->loafpan->expand(Sandwich::class . '<' . Topping::class . '<string>>', ['name' => 'gamers', 'topping' => ['gamer']]);
+        $this->assertInstanceOf(Sandwich::class, $sandwich);
+        $this->assertInstanceOf(Topping::class, $sandwich->topping[0]);
+        $this->assertFalse($this->loafpan->validate(Sandwich::class . '<int>', []));
+        $this->assertFalse(
+          $this->loafpan->validate(Sandwich::class . '<' . Topping::class . '<int>>', [
+            'name'    => 't',
+            'topping' => [
+              't',
+            ],
+          ])
+        );
+
+        $this->assertTrue(
+          $this->loafpan->validate(Sandwich::class . '<' . Topping::class . '<int>>', [
+            'name'    => 't',
+            'topping' => [
+              1,
+            ],
+          ])
+        );
+    }
+
+    public function testUuid() {
+        $items = $this->loafpan->expand('list<' . Uuid::class . '>', ['0e3704e6-fece-4b07-b941-c11062402b48']);
+        $this->assertCount(1, $items);
+        $this->assertInstanceOf(UuidInterface::class, $items[0]);
+    }
+
+    public function testDepth() {
+        $data = $this->loafpan->expand('list<list<list<int>>>', [[[1, 2, 3]]]);
+        $this->assertEquals([[[1, 2, 3]]], $data);
+    }
+
+    public function testRecursion() {
+        // Since the only construction of InvalidUnit is having an InvalidUnit, it should always be false
+        $this->assertFalse($this->loafpan->validate(InvalidUnit::class, []));
+
+        // Because SelfConsumingUnit exposes a ::fromSelfInt, which then tries to create SelfConsumingUnit<int> which does match, this will work
+        // This test makes sure it doesn't get hit in the cross fire of trying to prevent deadloops
+        $this->assertTrue($this->loafpan->validate(SelfConsumingUnit::class . '<string>', ['value' => 1]));
+        $v = $this->loafpan->expand(SelfConsumingUnit::class . '<string>', ['value' => 1]);
+        $this->assertEquals('1', $v->getValue());
+    }
+
+    public function testJsonSchema() {
+        // In a perfect world, I would test this, however this is not a perfect world, and the JsonSchema library dies on objects that are able to be itself (e.g. Object B is described as being Object B)
+        if (false) {
+            /** @noinspection PhpUnreachableStatementInspection */
+            $schema    = $this->loafpan->jsonSchema(SelfConsumingUnit::class . '<string>');
+            $validator = new Validator();
+            $v         = (object)['value' => 1];
+            $validator->validate($v, $schema);
+        }
+
+        $validator = new Validator();
+        $schema    = $this->loafpan->jsonSchema(Sandwich::class . '<' . Topping::class . '<string>>');
+
+        $v = (object)['name' => 'gamers', 'topping' => ['gamer']];
+        $validator->validate($v, $schema);
+        $this->assertTrue($validator->isValid());
+    }
+
+    public function testSetterOnly() {
+        $setterOnly = $this->loafpan->expand(SetterOnly::class, []);
+        $this->assertInstanceOf(SetterOnly::class, $setterOnly);
+        $this->assertNull($setterOnly->topping);
+        // Should be uninitialized
+        try {
+            $_ = $setterOnly->gamer;
+        } catch (\Error $error) {
+            $this->assertStringContainsString('must not be accessed before initialization', $error->getMessage());
+        }
+
+        $setterOnly = $this->loafpan->expand(SetterOnly::class, ["gamer" => "gamer", "topping" => null]);
+        $this->assertInstanceOf(SetterOnly::class, $setterOnly);
+        $this->assertEquals("gamer", $setterOnly->gamer);
+        $this->assertNull($setterOnly->topping);
+
+        $setterOnly = $this->loafpan->expand(SetterOnly::class, ["gamer" => "gamer", "topping" => "nice"]);
+        $this->assertInstanceOf(SetterOnly::class, $setterOnly);
+        $this->assertEquals("gamer", $setterOnly->gamer);
+        $this->assertInstanceOf(Topping::class, $setterOnly->topping);
+    }
+
+    public function testSetterAndConstructor() {
+        $this->assertFalse($this->loafpan->validate(SetterAndConstructor::class, []));
+        $this->assertTrue($this->loafpan->validate(SetterAndConstructor::class, ['number' => 4]));
+        $this->assertTrue($this->loafpan->validate(SetterAndConstructor::class, ['number' => 4, 'text' => 'gamers']));
+
+        /** @var SetterAndConstructor $v */
+        $v = $this->loafpan->expand(SetterAndConstructor::class, ['number' => 4, 'text' => 'gamers']);
+        $this->assertEquals(4, $v->number);
+        $this->assertEquals("gamers", $v->text);
+    }
+
+    public function testAcceptMultipleUnits() {
+        $this->assertTrue($this->loafpan->validate(AcceptMultipleUnits::class, []));
+        $this->loafpan->expand(AcceptMultipleUnits::class, []);
+        $this->addToAssertionCount(1);
+    }
+
+    public function testCustomNames() {
+        $this->assertTrue($this->loafpan->validate(CustomNames::class, ['professionals' => 0]));
+        /** @var CustomNames $v */
+        $v = $this->loafpan->expand(CustomNames::class, ['professionals' => 0, 'book' => "Hello!"]);
+        $this->assertEquals('Hello!', $v->text);
+        $this->assertEquals(0, $v->gamers);
+    }
+}
