@@ -8,9 +8,19 @@ use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
 
 
+/**
+ * An expander for the DateTime object, expects a ISO-8601 string as input
+ *
+ * @implements UnitExpander<DateTime>
+ */
 class DateTimeExpander implements UnitExpander {
-    public static function create(Loafpan $loafpan): static {
-        return new DateTimeExpander();
+    /**
+     * @param  Loafpan  $loafpan
+     *
+     * @return self
+     */
+    public static function create(Loafpan $loafpan): UnitExpander {
+        return new self();
     }
 
     public function getGenerics(): array {
@@ -28,7 +38,7 @@ class DateTimeExpander implements UnitExpander {
      * @return DateTime
      */
     public function expand(mixed $input, array $generic = [], array $path = []): mixed {
-        return DateTime::createFromFormat(DATE_ISO8601, $input);
+        return DateTime::createFromFormat(DATE_ISO8601, $input) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
     }
 
     public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array {

@@ -18,4 +18,11 @@ class SetterOnly {
 
     #[Field("It's a neat UUID!", type: Uuid::class)]
     public ?UuidInterface $uuid = null;
+
+    public bool $hasCornbread = false;
+
+    #[Field]
+    public function cornbread(bool $gamer) {
+        $this->hasCornbread = $gamer;
+    }
 }

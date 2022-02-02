@@ -9,8 +9,8 @@ use Yeast\Loafpan\UnitExpander;
 
 
 class UuidExpander implements UnitExpander {
-    public static function create(Loafpan $loafpan): static {
-        return new UuidExpander();
+    public static function create(Loafpan $loafpan): UnitExpander {
+        return new self();
     }
 
     public function getGenerics(): array {

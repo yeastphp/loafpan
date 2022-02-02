@@ -13,12 +13,17 @@ class MapExpander implements UnitExpander {
     ) {
     }
 
-    public static function create(Loafpan $loafpan): static {
-        return new MapExpander($loafpan);
+    /**
+     * @param  Loafpan  $loafpan
+     *
+     * @return self
+     */
+    public static function create(Loafpan $loafpan): UnitExpander {
+        return new self($loafpan);
     }
 
     public function validate(mixed $input, array $generic = [], array $path = []): bool {
-        if ( ! is_array($input)) {
+        if ( ! is_array($input) && ! is_object($input)) {
             return false;
         }
 

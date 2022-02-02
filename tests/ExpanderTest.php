@@ -7,7 +7,9 @@ use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Yeast\Loafpan\Loafpan;
+use Yeast\Test\Loafpan\Expander\CustomExpanderExpander;
 use Yeast\Test\Loafpan\Unit\AcceptMultipleUnits;
+use Yeast\Test\Loafpan\Unit\CustomExpander;
 use Yeast\Test\Loafpan\Unit\CustomNames;
 use Yeast\Test\Loafpan\Unit\InvalidUnit;
 use Yeast\Test\Loafpan\Unit\Sandwich;
@@ -49,6 +51,8 @@ class ExpanderTest extends TestCase {
     }
 
     public function testUuid() {
+        $this->assertTrue($this->loafpan->validate('list<' . Uuid::class . '>', ['0e3704e6-fece-4b07-b941-c11062402b48']));
+        $this->assertFalse($this->loafpan->validate('list<' . Uuid::class . '>', ['oh no!']));
         $items = $this->loafpan->expand('list<' . Uuid::class . '>', ['0e3704e6-fece-4b07-b941-c11062402b48']);
         $this->assertCount(1, $items);
         $this->assertInstanceOf(UuidInterface::class, $items[0]);
@@ -108,6 +112,19 @@ class ExpanderTest extends TestCase {
         $this->assertInstanceOf(SetterOnly::class, $setterOnly);
         $this->assertEquals("gamer", $setterOnly->gamer);
         $this->assertInstanceOf(Topping::class, $setterOnly->topping);
+
+        $setterOnly = $this->loafpan->expand(SetterOnly::class, ["gamer" => "gamer", "topping" => "nice", "cornbread" => true]);
+        $this->assertInstanceOf(SetterOnly::class, $setterOnly);
+        $this->assertEquals("gamer", $setterOnly->gamer);
+        $this->assertTrue($setterOnly->hasCornbread);
+        $this->assertInstanceOf(Topping::class, $setterOnly->topping);
+
+        $uuid       = "ce1056be-ebd6-497a-980d-6d725ec8d741";
+        $setterOnly = $this->loafpan->expand(SetterOnly::class, ["gamer" => "gamer", "topping" => "nice", "uuid" => $uuid]);
+        $this->assertInstanceOf(SetterOnly::class, $setterOnly);
+        $this->assertEquals("gamer", $setterOnly->gamer);
+        $this->assertTrue($setterOnly->uuid?->equals(Uuid::fromString($uuid)));
+        $this->assertInstanceOf(Topping::class, $setterOnly->topping);
     }
 
     public function testSetterAndConstructor() {
@@ -129,9 +146,24 @@ class ExpanderTest extends TestCase {
 
     public function testCustomNames() {
         $this->assertTrue($this->loafpan->validate(CustomNames::class, ['professionals' => 0]));
-        /** @var CustomNames $v */
-        $v = $this->loafpan->expand(CustomNames::class, ['professionals' => 0, 'book' => "Hello!"]);
+        $v = $this->loafpan->expandInto(['professionals' => 0, 'book' => "Hello!"], CustomNames::class);
         $this->assertEquals('Hello!', $v->text);
         $this->assertEquals(0, $v->gamers);
+    }
+
+    public function testMap() {
+        $this->assertTrue($this->loafpan->validate('map<string>', []));
+        $this->assertTrue($this->loafpan->validate('map<string>', ["gamer" => "gamer"]));
+        $this->assertFalse($this->loafpan->validate('map<int>', ["gamer" => "gamer"]));
+    }
+
+    public function testCustomExpander() {
+        $expander = $this->loafpan->getExpander(CustomExpander::class);
+        $this->assertInstanceOf(CustomExpanderExpander::class, $expander);
+
+        // Make sure the cache is used
+        $newLoafpan = new Loafpan($this->loafpan->getCacheDirectory());
+        $expander = $newLoafpan->getExpander(CustomExpander::class);
+        $this->assertInstanceOf(CustomExpanderExpander::class, $expander);
     }
 }

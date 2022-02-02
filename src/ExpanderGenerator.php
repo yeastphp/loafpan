@@ -140,7 +140,7 @@ class ExpanderGenerator {
                 $anyOf = [];
 
                 foreach ($types as $childType) {
-                    if ( ! $this->loafpan->hasSupport($childType) && ! in_array($childType, $this->unit->generics, true)) {
+                    if ( ! $this->loafpan->hasSupport($childType, $this->unit->generics) && ! in_array($childType, $this->unit->generics, true)) {
                         $reasons[] = 'there is no expander known for ' . $childType;
                     }
 
@@ -221,7 +221,7 @@ class ExpanderGenerator {
         $types = $this->getExpanderTypes($parameters[0]);
 
         foreach ($types as $type) {
-            if ( ! $this->loafpan->hasSupport($type) && ! in_array($type, $this->unit->generics, true)) {
+            if ( ! $this->loafpan->hasSupport($type, $this->unit->generics) && ! in_array($type, $this->unit->generics, true)) {
                 $reasons[] = 'there is no expander known for ' . $type;
             }
         }
@@ -257,6 +257,7 @@ class ExpanderGenerator {
                 $reasons[] = 'is not public';
             }
 
+            $types   = [];
             $reasons = array_merge($reasons, $this->checkIfAssignFunctionValid($method, $types));
 
             if (count($reasons) > 0) {
@@ -304,6 +305,10 @@ class ExpanderGenerator {
     }
 
     public function generateUnitExpander(): string {
+        if ($this->unit->expander !== null) {
+            return "<?php\n// $this->className uses a custom expander\nreturn \\{$this->unit->expander}::class;\n";
+        }
+
         $file = new PhpFile();
 
         $namespace = $file->addNamespace("Yeast\\Loafpan\\Generated");
@@ -313,6 +318,7 @@ class ExpanderGenerator {
 
 
         $classType = $namespace->addClass($this->expanderClassName);
+        $classType->setFinal();
         $classType->addComment('@implements UnitExpander<\\' . $this->className . '>');
         $classType->addImplement(UnitExpander::class);
 
@@ -322,7 +328,7 @@ class ExpanderGenerator {
 
         $create = $classType->addMethod("create");
         $create->addParameter("loafpan")->setType(Loafpan::class);
-        $create->setReturnType("static");
+        $create->setReturnType(UnitExpander::class);
         $create->setStatic();
         $create->addBody('return new static($loafpan);');
 
@@ -389,7 +395,7 @@ class ExpanderGenerator {
     /**
      * @throws ReflectionException
      */
-    private function  generateConstructorExpansionCode(): string {
+    private function generateConstructorExpansionCode(): string {
         $constructor = $this->reflection->getConstructor();
 
         $parameterList = [];
@@ -417,7 +423,7 @@ class ExpanderGenerator {
                     }
                 }
 
-                $parameterVariable = $this->generateFieldExpansionCode($this->getParameterTypes($parameter), $parameter->name, $field,null, $parameter->isOptional(), $defaultValue, $preBlock);
+                $parameterVariable = $this->generateFieldExpansionCode($this->getParameterTypes($parameter), $parameter->name, $field, null, $parameter->isOptional(), $defaultValue, $preBlock);
 
                 if ($preBlock !== null) {
                     $code[] = $preBlock;
@@ -429,29 +435,15 @@ class ExpanderGenerator {
 
         $code[] = '$expanded = new \\' . $this->className . '(' . implode(", ", $parameterList) . ');';
 
-        $directSetterBlock = "";
         foreach ($this->setters as $setter) {
-            $assignTo = null;
-
             if ($setter->type === Setter::PROPERTY) {
-                $assignTo = '$expanded->' . $setter->inputName;
-            }
-
-            $parameterVariable = $this->generateFieldExpansionCode($setter->types, $setter->inputName, $setter->field, $assignTo, true, null, $preBlock);
-
-            if ($setter->type === Setter::PROPERTY) {
-                if ($preBlock === null) {
-                    $directSetterBlock .= '$expanded->' . $setter->inputName . ' = ' . $parameterVariable . ';';
-                } else {
-                    $code[] = $preBlock;
-                }
+                $assignTo = fn(string $valGen) => '$expanded->' . $setter->inputName . ' = ' . $valGen;
             } else {
-                if ($preBlock !== null) {
-                    $code[] = $preBlock;
-                }
-
-                $code[] = '$expanded->' . $setter->inputName . '(' . $parameterVariable . ');';
+                $assignTo = fn(string $valGen) => '$expanded->' . $setter->inputName . '(' . $valGen . ')';
             }
+
+            $this->generateFieldExpansionCode($setter->types, $setter->inputName, $setter->field, $assignTo, true, null, $preBlock);
+            $code[] = $preBlock;
         }
 
         return implode("\n\n", $code);
@@ -568,7 +560,7 @@ class ExpanderGenerator {
     }
 
     private function isBuiltin(string $type): bool {
-        return $type === 'int' || $type === 'null' || $type === 'bool' || $type === 'float' || $type === 'string' || $type === 'array';
+        return $type === 'int' || $type === 'null' || $type === 'bool' || $type === 'float' || $type === 'string' || $type === 'array' || $type === 'mixed';
     }
 
     private function getFieldTypes(?ReflectionType $type, ?string $typeOverride = null): array {
@@ -612,13 +604,13 @@ class ExpanderGenerator {
 
         $method->addParameter("generics")->setType('array');
 
-        $checks   = [];
+        $checks = [];
 
         if (count($this->setters) > 0) {
-            $block = "\$result = " . $this->generateSetterMethodMatcherCode($this->setters, $classType) . ";\n";
-            $block .= "if (\$result === null) {\n";
-            $block .= "    return null;\n";
-            $block .= "}";
+            $block    = "\$result = " . $this->generateSetterMethodMatcherCode($this->setters, $classType) . ";\n";
+            $block    .= "if (\$result === null) {\n";
+            $block    .= "    return null;\n";
+            $block    .= "}";
             $checks[] = $block;
         } else {
             $checks[] = '$result = [];';
@@ -659,7 +651,8 @@ class ExpanderGenerator {
                 'int' => "is_int(\$$varName)",
                 'float' => "is_float(\$$varName)",
                 'array' => "is_array(\$$varName)",
-                'bool' => "is_bool(\$$varName)"
+                'bool' => "is_bool(\$$varName)",
+                default => throw new RuntimeException("$type is recognized as builtin type, yet there is no support"),
             };
         } else {
             $expanded = $type;
@@ -671,7 +664,7 @@ class ExpanderGenerator {
     private function generateExpanderMethodMatcherCode(ReflectionMethod $expander): string {
         $first = $expander->getParameters()[0];
 
-        /** @var Expander $field */
+        /** @var Expander $expanderAttr */
         $expanderAttr = $expander->getAttributes(Expander::class)[0]->newInstance();
 
         $parameterType = $first->getType();
@@ -996,13 +989,13 @@ class ExpanderGenerator {
         return $check;
     }
 
-    private function generateFieldExpansionCode(array $types, string $name, Field $field, ?string $assignTo = null, bool $optional = false, ?string $defaultValue = null, ?string &$preBlock = null): ?string {
+    private function generateFieldExpansionCode(array $types, string $name, Field $field, ?callable $assign = null, bool $optional = false, ?string $defaultValue = null, ?string &$preBlock = null): string {
         $phpFieldName      = var_export($field->name ?: $name, true);
         $parameterVariable = '$input[' . $phpFieldName . ']';
 
         $complex = $this->hasComplex($types);
         $simple  = $this->hasSimple($types);
-        if (($optional && $assignTo === null) || $complex) {
+        if (($optional && $assign === null) || $complex) {
             $parameterVariable = '$field' . ucfirst($name);
         }
 
@@ -1011,28 +1004,39 @@ class ExpanderGenerator {
         $parameterCode = "";
 
         if ($complex) {
-            $complexCode = (($assignTo === null || ! $simple) ? $parameterVariable : $assignTo) . ' = $this->loafpan->expand($match[1][' . $phpFieldName . '], $input[' . $phpFieldName . '], ' . $this->getGenericArray() . ');';
+            $valueGen = '$this->loafpan->expand($match[1][' . $phpFieldName . '], $input[' . $phpFieldName . '], ' . $this->getGenericArray() . ')';
+
+            if ($assign === null) {
+                $complexCode = $parameterVariable . ' = ' . $valueGen;
+            } else {
+                $complexCode = ($assign)($valueGen);
+            }
+
+            $complexCode .= ';';
 
             if ($simple) {
-                $parameterCode = 'if ($match[1][' . $phpFieldName . "] !== false) {\n    " . $complexCode . "\n} else {\n    " . ($assignTo ?: $parameterVariable) . ' = $input[' . $phpFieldName . "];\n}";
+                $valueGen      = '$input[' . $phpFieldName . "]";
+                $assignment    = $assign ? (($assign)($valueGen)) : ($parameterVariable . ' = ' . $valueGen);
+                $parameterCode = 'if ($match[1][' . $phpFieldName . "] !== false) {\n    " . $complexCode . "\n} else {\n    " . $assignment . " ;\n}";
             } else {
                 $parameterCode .= $complexCode;
             }
         }
 
         if ($optional) {
-            if ( ! $complex && $assignTo === null) {
-                $parameterCode = $parameterVariable . ' = $input[' . $phpFieldName . '];' . "\n";
-            }
-
-            if ($assignTo !== null && ! $complex) {
-                $parameterCode .= $assignTo . ' = ' . $parameterVariable . ';';
+            if ( ! $complex) {
+                if ($assign === null) {
+                    $parameterCode = $parameterVariable . ' = $input[' . $phpFieldName . '];' . "\n";
+                } else {
+                    $parameterCode .= ($assign)($parameterVariable) . ';';
+                }
             }
 
             $parameterCode = 'if (isset($match[1][' . $phpFieldName . '])) {' . "\n" . $this->indentBlock(trim($parameterCode)) . "\n}";
 
             if ($defaultValue !== null) {
-                $parameterCode .= " else {\n    " . ($assignTo ?: $parameterVariable) . " = " . $defaultValue . ";\n}";
+                $assignment    = $assign ? (($assign)($defaultValue)) : ($parameterVariable . ' = ' . $defaultValue);
+                $parameterCode .= " else {\n    " . $assignment . ";\n}";
             }
         }
 

@@ -7,18 +7,28 @@ use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
 
 
+/**
+ * An expander for array lists
+ *
+ * @implements UnitExpander<array>
+ */
 class ListExpander implements UnitExpander {
     private function __construct(
       private Loafpan $loafpan,
     ) {
     }
 
-    public static function create(Loafpan $loafpan): static {
-        return new ListExpander($loafpan);
+    /**
+     * @param  Loafpan  $loafpan
+     *
+     * @return self
+     */
+    public static function create(Loafpan $loafpan): UnitExpander {
+        return new self($loafpan);
     }
 
     public function validate(mixed $input, array $generic = [], array $path = []): bool {
-        if ( ! is_array($input)) {
+        if ( ! is_array($input) || !array_is_list($input)) {
             return false;
         }
 
@@ -32,7 +42,7 @@ class ListExpander implements UnitExpander {
     }
 
     public function expand(mixed $input, array $generic = [], array $path = []): mixed {
-        return array_map(fn($item) => $this->loafpan->expand($generic[0], $item), $input);
+        return array_map(fn(mixed $item) => $this->loafpan->expand($generic[0], $item), $input);
     }
 
     public function getGenerics(): array {
