@@ -42,7 +42,7 @@ class Loafpan {
     }
 
     /**
-     * Register a new expand to this Loafpan instance, this can be helpful when the code gen doesn't offer enough flexibility
+     * Register a new expander to this Loafpan instance, this can be helpful when the code gen doesn't offer enough flexibility
      *
      * @template T
      *
