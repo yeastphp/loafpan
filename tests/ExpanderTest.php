@@ -8,6 +8,8 @@ use PHPUnit\Framework\TestCase;
 use Ramsey\Uuid\Uuid;
 use Ramsey\Uuid\UuidInterface;
 use Yeast\Loafpan\Loafpan;
+use Yeast\Loafpan\Visitor\ArrayVisitor;
+use Yeast\Loafpan\Visitor\ValueVisitor;
 use Yeast\Test\Loafpan\Expander\CustomExpanderExpander;
 use Yeast\Test\Loafpan\Unit\AcceptMultipleUnits;
 use Yeast\Test\Loafpan\Unit\CustomExpander;
@@ -192,5 +194,13 @@ class ExpanderTest extends TestCase {
         // Shouldn't override unit specific casing's
         $this->assertFalse($lf->validate(SnakeCase::class, ['nice-gamer' => "hello!"]));
         $this->assertTrue($lf->validate(SnakeCase::class, ['nice_gamer' => "hello!"]));
+    }
+
+    public function testValueVisitor() {
+        $this->assertTrue($this->loafpan->validateVisitor(SnakeCase::class, new ValueVisitor((object)['nice_gamer' => 'hello!'])));
+        $this->assertFalse($this->loafpan->validateVisitor(SnakeCase::class, new ValueVisitor(['nice_gamer' => 'hello!'])));
+
+        $this->assertFalse($this->loafpan->validateVisitor(SnakeCase::class, new ArrayVisitor((object)['nice_gamer' => 'hello!'])));
+        $this->assertTrue($this->loafpan->validateVisitor(SnakeCase::class, new ArrayVisitor(['nice_gamer' => 'hello!'])));
     }
 }

@@ -39,6 +39,10 @@ class ExpanderGenerator {
         return $this->errors;
     }
 
+    public static function getModificationTime(): int {
+        return filemtime(__FILE__);
+    }
+
     /**
      * @template T
      *
@@ -216,7 +220,7 @@ class ExpanderGenerator {
         $parameters = $method->getParameters();
 
         if (count($parameters) === 0 || count($parameters) > 2) {
-            return ['function should have a signature of ($input) or ($input, Loafpan $loafpan)'];
+            return ['function should have a signature of ($visitor) or ($visitor, Loafpan $loafpan)'];
         }
 
         $types = $this->getExpanderTypes($parameters[0]);
@@ -316,6 +320,7 @@ class ExpanderGenerator {
         $namespace->addUse(UnitExpander::class);
         $namespace->addUse(Loafpan::class);
         $namespace->addUse(JsonSchemaBuilder::class);
+        $namespace->addUse(Visitor::class);
 
 
         $classType = $namespace->addClass($this->expanderClassName);
@@ -334,22 +339,22 @@ class ExpanderGenerator {
         $create->addBody('return new static($loafpan);');
 
         $methodSelection = $classType->addMethod('selectExpansionMethod');
-        $methodSelection->addParameter('input')->setType('mixed');
+        $methodSelection->addParameter('visitor')->setType(Visitor::class);
         $methodSelection->addParameter("generics")->setType('array');
         $methodSelection->addParameter('path')->setType('array');
         $methodSelection->setReturnType('?array');
         $methodSelection->setBody($this->generateMethodSelectionCode($classType));
 
         $validate = $classType->addMethod('validate');
-        $validate->addParameter('input')->setType('mixed');
+        $validate->addParameter('visitor')->setType(Visitor::class);
         $validate->addParameter("generics")->setType('array')->setDefaultValue([]);
         $validate->addParameter('path')->setType('array')->setDefaultValue([]);
         $validate->setReturnType('bool');
 
-        $validate->setBody('return $this->selectExpansionMethod($input, $generics, $path) !== null;');
+        $validate->setBody('return $this->selectExpansionMethod($visitor, $generics, $path) !== null;');
 
         $expand = $classType->addMethod('expand');
-        $expand->addParameter('input')->setType('mixed');
+        $expand->addParameter('visitor')->setType(Visitor::class);
         $expand->addParameter("generics")->setType('array')->setDefaultValue([]);
         $expand->addParameter('path')->setType('array')->setDefaultValue([]);
         $expand->setReturnType('mixed');
@@ -375,7 +380,7 @@ class ExpanderGenerator {
 
     private function generateExpansionCode(): string {
         $code = [
-          '$match = $this->selectExpansionMethod($input, $generics, $path);' . "\n\$expanded = null;",
+          '$match = $this->selectExpansionMethod($visitor, $generics, $path);' . "\n\$expanded = null;",
           "if (\$match === null) {\n     throw new \\RuntimeException(\"Can't expand {$this->className} based on given input\");\n}",
         ];
 
@@ -438,7 +443,7 @@ class ExpanderGenerator {
 
         foreach ($this->setters as $setter) {
             if ($setter->type === Setter::PROPERTY) {
-                $assignTo = fn(string $valGen) => '$expanded->' . $setter->inputName . ' = ' . $valGen;
+                $assignTo = fn(string $valGen) => '$expanded->' . $setter->inputName . ' = ' . ($valGen);
             } else {
                 $assignTo = fn(string $valGen) => '$expanded->' . $setter->inputName . '(' . $valGen . ')';
             }
@@ -501,18 +506,20 @@ class ExpanderGenerator {
     private function generateExpanderMethodExpansionCode(ReflectionMethod $expander): string {
         $parameter = $expander->getParameters()[0];
 
-        $valueName = '$input';
+        $valueName = '$visitor';
         $code      = "";
 
         $types = $this->getExpanderTypes($parameter);
         if ($this->hasComplex($types)) {
-            $valueName = '$inputValue';
+            $valueName = '$visitorValue';
 
             if ($this->hasSimple($types)) {
-                $code = "if (\$match[1] !== false) {\n    \$inputValue = \$this->loafpan->expand(\$match[1], \$input, " . $this->getGenericArray() . ", \$path);\n} else {\n    \$inputValue = \$input;\n}\n\n";
+                $code = "if (\$match[1] !== false) {\n    \$visitorValue = \$this->loafpan->expandVisitor(\$match[1], \$visitor, " . $this->getGenericArray() . ", \$path);\n} else {\n    \$visitorValue = \$visitor;\n}\n\n";
             } else {
-                $code = '$inputValue = $this->loafpan->expand($match[1], $input, ' . $this->getGenericArray() . ', $path);' . "\n";
+                $code = '$visitorValue = $this->loafpan->expandVisitor($match[1], $visitor, ' . $this->getGenericArray() . ', $path);' . "\n";
             }
+        } else {
+            $valueName .= '->getValue()';
         }
 
         $simple = '$expanded = \\' . $this->className . '::' . $expander->getName() . '(' . $valueName . ($expander->getNumberOfParameters() > 1 ? ', $this->loafpan' : '') . ');';
@@ -548,7 +555,7 @@ class ExpanderGenerator {
         }
 
         if (count($this->setters) > 0 && ($this->canUseConstructor && ! $this->constructorIsUniqueExpander)) {
-            $block = "if (is_array(\$input) && (\$match = " . $this->generateSetterMethodMatcherCode($this->setters, $classType) . ") !== null) {\n";
+            $block = "if (\$visitor->isObject() && (\$match = " . $this->generateSetterMethodMatcherCode($this->setters, $classType) . ") !== null) {\n";
             $block .= "    return ['__construct', \$match];\n";
             $block .= "}";
 
@@ -600,8 +607,8 @@ class ExpanderGenerator {
         $method = $classType->addMethod('matchConstructorExpander')
                             ->setPrivate();
 
-        $method->addParameter('input')
-               ->setType('mixed');
+        $method->addParameter('visitor')
+               ->setType(Visitor::class);
 
         $method->addParameter("generics")->setType('array');
 
@@ -638,7 +645,7 @@ class ExpanderGenerator {
         $method->setBody(implode("\n\n", $checks));
         $method->setReturnType("?array");
 
-        return "/**\n * Matcher for the constructor expander\n */\nif (is_array(\$input) && (\$match = \$this->matchConstructorExpander(\$input, \$generics)) !== null) {\n    return ['__construct', \$match];\n}";
+        return "/**\n * Matcher for the constructor expander\n */\nif (\$visitor->isObject() && (\$match = \$this->matchConstructorExpander(\$visitor, \$generics)) !== null) {\n    return ['__construct', \$match];\n}";
     }
 
     private function getCheckForType(string $type, string $varName, ?string &$expanded = null): string {
@@ -647,18 +654,18 @@ class ExpanderGenerator {
 
             return match ($type) {
                 'mixed' => 'true',
-                'string' => "is_string(\$$varName)",
-                'null' => "is_null(\$$varName)",
-                'int' => "is_int(\$$varName)",
-                'float' => "is_float(\$$varName)",
-                'array' => "is_array(\$$varName)",
-                'bool' => "is_bool(\$$varName)",
+                'string' => "{$varName}->isString()",
+                'null' => "{$varName}->isNull()",
+                'int' => "{$varName}->isInteger()",
+                'float' => "{$varName}->isFloat()",
+                'array' => "{$varName}->isArray()",
+                'bool' => "{$varName}->isBool()",
                 default => throw new RuntimeException("$type is recognized as builtin type, yet there is no support"),
             };
         } else {
             $expanded = $type;
 
-            return '$this->loafpan->validate(' . var_export($type, true) . ", \$$varName, " . $this->getGenericArray() . ", \$path)";
+            return '$this->loafpan->validateVisitor(' . var_export($type, true) . ", $varName, " . $this->getGenericArray() . ", \$path)";
         }
     }
 
@@ -676,7 +683,7 @@ class ExpanderGenerator {
 
         foreach ($types as $type) {
             $expanded = null;
-            $check    = $this->getCheckForType($type, 'input', $expanded);
+            $check    = $this->getCheckForType($type, '$visitor', $expanded);
 
             if ($expanded !== null) {
                 $expandedChecks[$expanded] = $check;
@@ -872,7 +879,7 @@ class ExpanderGenerator {
                               ->setPrivate()
                               ->setReturnType('?array');
 
-        $matchSetters->addParameter('input')->setType('mixed');
+        $matchSetters->addParameter('visitor')->setType(Visitor::class);
         $matchSetters->addParameter('generics')->setType('array');
 
 
@@ -887,7 +894,7 @@ class ExpanderGenerator {
 
         $matchSetters->setBody(implode("\n\n", $code));
 
-        return '$this->matchSetters($input, $generics)';
+        return '$this->matchSetters($visitor, $generics)';
     }
 
     private function extractPrimitives(array $types, array $refs, array $primitives): array {
@@ -918,7 +925,7 @@ class ExpanderGenerator {
 
         foreach ($types as $type) {
             $expanded = null;
-            $check    = $this->getCheckForType($type, "input[$phpFieldName]", $expanded);
+            $check    = $this->getCheckForType($type, "\$visitor->enterObject($phpFieldName)", $expanded);
 
             if ($expanded === null) {
                 $simpleChecks[] = $check;
@@ -936,7 +943,7 @@ class ExpanderGenerator {
                 $simpleCheck = '(' . implode(" || ", $simpleChecks) . ')';
             }
 
-            $if    = 'if (array_key_exists(' . $phpFieldName . ', $input) && ';
+            $if    = 'if ($visitor->hasKey(' . $phpFieldName . ') && ';
             $ifEnd = ')';
             if ($optional) {
                 if (count($simpleChecks) > 1) {
@@ -957,22 +964,22 @@ class ExpanderGenerator {
             }
 
             $unitCheck = 'foreach ([' . implode(", ", $items) . "] as \$unitName) {\n";
-            $unitCheck .= '    if ($this->loafpan->validate($unitName, $input[' . $phpFieldName . "], " . $this->getGenericArray() . ")) {\n";
+            $unitCheck .= '    if ($this->loafpan->validateVisitor($unitName, $visitor->enterObject(' . $phpFieldName . "), " . $this->getGenericArray() . ")) {\n";
             $unitCheck .= '        $result[' . $phpFieldName . "] = \$unitName;\n";
             $unitCheck .= "        break;\n";
             $unitCheck .= '    }' . "\n";
             $unitCheck .= "}";
 
             if ( ! $optional) {
-                $unitCheck = "if (array_key_exists($phpFieldName, \$input)) {\n" . $this->indentBlock($unitCheck) . "\n}";
+                $unitCheck = "if (\$visitor->hasKey($phpFieldName)) {\n" . $this->indentBlock($unitCheck) . "\n}";
             }
 
             $parameterCode[] = $unitCheck;
         }
 
         if (count($unitChecks) === 1) {
-            $checkPrefix = $optional ? '' : 'array_key_exists(' . $phpFieldName . ', $input) && ';
-            $unitCheck   = 'if (' . $checkPrefix . '$this->loafpan->validate(' . var_export($unitChecks[0], true) . ', $input[' . $phpFieldName . "], " . $this->getGenericArray() . ")) {\n";
+            $checkPrefix = $optional ? '' : '$visitor->hasKey(' . $phpFieldName . ') && ';
+            $unitCheck   = 'if (' . $checkPrefix . '$this->loafpan->validateVisitor(' . var_export($unitChecks[0], true) . ', $visitor->enterObject(' . $phpFieldName . "), " . $this->getGenericArray() . ")) {\n";
             $unitCheck   .= '    $result[' . $phpFieldName . "] = " . var_export($unitChecks[0], true) . ";\n";
             $unitCheck   .= '}';
 
@@ -984,7 +991,7 @@ class ExpanderGenerator {
         $check = implode("\n\n", $parameterCode);;
 
         if ($optional) {
-            $check = "if (array_key_exists($phpFieldName, \$input)) {\n" . $this->indentBlock($check) . "\n}";
+            $check = "if (\$visitor->hasKey($phpFieldName)) {\n" . $this->indentBlock($check) . "\n}";
         }
 
         return $check;
@@ -992,7 +999,7 @@ class ExpanderGenerator {
 
     private function generateFieldExpansionCode(array $types, string $name, Field $field, ?callable $assign = null, bool $optional = false, ?string $defaultValue = null, ?string &$preBlock = null): string {
         $phpFieldName      = var_export($field->name ?: $this->loafpan->getFieldName($name, $this->unit), true);
-        $parameterVariable = '$input[' . $phpFieldName . ']';
+        $parameterVariable = '$visitor->enterObject(' . $phpFieldName . ')->getValue()';
 
         $complex = $this->hasComplex($types);
         $simple  = $this->hasSimple($types);
@@ -1005,7 +1012,7 @@ class ExpanderGenerator {
         $parameterCode = "";
 
         if ($complex) {
-            $valueGen = '$this->loafpan->expand($match[1][' . $phpFieldName . '], $input[' . $phpFieldName . '], ' . $this->getGenericArray() . ')';
+            $valueGen = '$this->loafpan->expandVisitor($match[1][' . $phpFieldName . '], $visitor->enterObject(' . $phpFieldName . '), ' . $this->getGenericArray() . ')';
 
             if ($assign === null) {
                 $complexCode = $parameterVariable . ' = ' . $valueGen;
@@ -1016,7 +1023,7 @@ class ExpanderGenerator {
             $complexCode .= ';';
 
             if ($simple) {
-                $valueGen      = '$input[' . $phpFieldName . "]";
+                $valueGen      = '$visitor->enterObject(' . $phpFieldName . ')->getValue()';
                 $assignment    = $assign ? (($assign)($valueGen)) : ($parameterVariable . ' = ' . $valueGen);
                 $parameterCode = 'if ($match[1][' . $phpFieldName . "] !== false) {\n    " . $complexCode . "\n} else {\n    " . $assignment . " ;\n}";
             } else {
@@ -1027,7 +1034,7 @@ class ExpanderGenerator {
         if ($optional) {
             if ( ! $complex) {
                 if ($assign === null) {
-                    $parameterCode = $parameterVariable . ' = $input[' . $phpFieldName . '];' . "\n";
+                    $parameterCode = $parameterVariable . ' = $visitor->enterObject(' . $phpFieldName . ')->getValue();' . "\n";
                 } else {
                     $parameterCode .= ($assign)($parameterVariable) . ';';
                 }

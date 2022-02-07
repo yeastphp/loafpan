@@ -5,6 +5,7 @@ namespace Yeast\Loafpan\Expander;
 use Yeast\Loafpan\JsonSchemaBuilder;
 use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
+use Yeast\Loafpan\Visitor;
 
 
 /**
@@ -27,13 +28,14 @@ class ListExpander implements UnitExpander {
         return new self($loafpan);
     }
 
-    public function validate(mixed $input, array $generic = [], array $path = []): bool {
-        if ( ! is_array($input) || !array_is_list($input)) {
+    public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
+        if ( ! $visitor->isList()) {
             return false;
         }
 
-        foreach ($input as $item) {
-            if ( ! $this->loafpan->validate($generic[0], $item)) {
+        $c = $visitor->length();
+        for ($i = 0; $i < $c; $i++) {
+            if ( ! $this->loafpan->validateVisitor($generic[0], $visitor->enterArray($i))) {
                 return false;
             }
         }
@@ -41,8 +43,14 @@ class ListExpander implements UnitExpander {
         return true;
     }
 
-    public function expand(mixed $input, array $generic = [], array $path = []): mixed {
-        return array_map(fn(mixed $item) => $this->loafpan->expand($generic[0], $item), $input);
+    public function expand(Visitor $visitor, array $generic = [], array $path = []): mixed {
+        $v = [];
+        $c = $visitor->length();
+        for ($i = 0; $i < $c; $i++) {
+            $v[] = $this->loafpan->expandVisitor($generic[0], $visitor->enterArray($i));
+        }
+
+        return $v;
     }
 
     public function getGenerics(): array {

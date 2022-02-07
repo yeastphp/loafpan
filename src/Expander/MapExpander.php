@@ -5,6 +5,7 @@ namespace Yeast\Loafpan\Expander;
 use Yeast\Loafpan\JsonSchemaBuilder;
 use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
+use Yeast\Loafpan\Visitor;
 
 
 class MapExpander implements UnitExpander {
@@ -22,13 +23,14 @@ class MapExpander implements UnitExpander {
         return new self($loafpan);
     }
 
-    public function validate(mixed $input, array $generic = [], array $path = []): bool {
-        if ( ! is_array($input) && ! is_object($input)) {
+    public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
+        if (!$visitor->isObject()) {
             return false;
         }
 
-        foreach ($input as $item) {
-            if ( ! $this->loafpan->validate($generic[0], $item)) {
+        $keys =  $visitor->keys();
+        foreach ($keys as $key) {
+            if ( ! $this->loafpan->validateVisitor($generic[0], $visitor->enterObject($key))) {
                 return false;
             }
         }
@@ -36,11 +38,12 @@ class MapExpander implements UnitExpander {
         return true;
     }
 
-    public function expand(mixed $input, array $generic = [], array $path = []): mixed {
+    public function expand(Visitor $visitor, array $generic = [], array $path = []): mixed {
         $map = [];
 
-        foreach ($input as $key => $value) {
-            $map[$key] = $this->loafpan->expand($generic[0], $value);
+        $keys =  $visitor->keys();
+        foreach ($keys as $key) {
+            $map[$key] = $this->loafpan->expandVisitor($generic[0], $visitor->enterObject($key));
         }
 
         return $map;

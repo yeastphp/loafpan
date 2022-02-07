@@ -4,6 +4,7 @@ namespace Yeast\Loafpan;
 
 use DateTime;
 use DateTimeImmutable;
+use Jawira\CaseConverter\CaseConverterException;
 use Jawira\CaseConverter\Convert;
 use JetBrains\PhpStorm\ExpectedValues;
 use Ramsey\Uuid\Uuid;
@@ -17,6 +18,7 @@ use Yeast\Loafpan\Expander\DateTimeImmutableExpander;
 use Yeast\Loafpan\Expander\ListExpander;
 use Yeast\Loafpan\Expander\MapExpander;
 use Yeast\Loafpan\Expander\UuidExpander;
+use Yeast\Loafpan\Visitor\ArrayVisitor;
 
 
 class Loafpan {
@@ -60,7 +62,16 @@ class Loafpan {
         $this->registeredExpanders[$className] = $expander;
     }
 
-    public function getFieldName(string $name, ?Unit $unit) {
+    /**
+     * Get the field name in the user input in correct casing, based on optional Unit
+     *
+     * @param  string  $name  The field name as represented in the unit object
+     * @param  Unit|null  $unit  The Unit attribute
+     *
+     * @return string
+     * @throws CaseConverterException
+     */
+    public function getFieldName(string $name, ?Unit $unit): string {
         $casing = $unit?->casing ?: $this->casing;
 
         if ($casing === null) {
@@ -130,6 +141,7 @@ class Loafpan {
      * @param  array  $generics  The type variables for the class you want to expand into
      *
      * @return T
+     * @throws ReflectionException
      * @see Loafpan::expand()
      *
      * @template T
@@ -154,6 +166,7 @@ class Loafpan {
      * @param  array  $path  The path that has been taken to expand this user input, only useful inside expanders
      *
      * @return mixed
+     * @throws ReflectionException
      */
     public function expand(string $className, mixed $input, array $typeVariables = [], array $path = []): mixed {
         [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
@@ -161,13 +174,23 @@ class Loafpan {
         return $this->expandWith($expanded, $className, $generics, $input, $path);
     }
 
+    /**
+     * @throws ReflectionException
+     */
     private function expandWith(string $fullName, string $className, array $generics, mixed $input, array $path): mixed {
+        return $this->expandVisitorWith($fullName, $className, $generics, new ArrayVisitor($input), $path);
+    }
+
+    /**
+     * @throws ReflectionException
+     */
+    private function expandVisitorWith(string $fullName, string $className, array $generics, Visitor $visitor, array $path): mixed {
         if ($className === 'int' || $className === 'string' || $className === 'bool' || $className === 'float' || $className === 'array' || $className === 'null' || $className === 'mixed') {
-            if ( ! $this->validate($className, $input)) {
-                throw new RuntimeException("Couldn't expand input of type " . gettype($input) . " into " . $className);
+            if ( ! $this->validateVisitor($className, $visitor)) {
+                throw new RuntimeException("Couldn't expand input of type " . gettype($visitor->getValue()) . " into " . $className);
             }
 
-            return $input;
+            return $visitor->getValue();
         }
 
         if (in_array($fullName, $path)) {
@@ -177,7 +200,25 @@ class Loafpan {
         $expander = $this->getExpander($className);
         $path[]   = $fullName;
 
-        return $expander->expand($input, $generics, $path);
+        return $expander->expand($visitor, $generics, $path);
+    }
+
+    /**
+     * Expand user input into a unit by class name, throws on failure
+     *
+     *
+     * @param  string  $className  The name of the class to expand into, with type variables e.g. `MyClass<int>`
+     * @param  Visitor  $visitor  Visitor with user input to expand
+     * @param  array  $typeVariables  The type vars from the calling class, e.g. one could ask for `MyClass<T>` and then pass the generic parameters of `["T" => "int"]` and this function will then return `MyClass<int>`
+     * @param  array  $path  The path that has been taken to expand this user input, only useful inside expanders
+     *
+     * @return mixed
+     * @throws ReflectionException
+     */
+    public function expandVisitor(string $className, Visitor $visitor, array $typeVariables = [], array $path = []): mixed {
+        [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
+
+        return $this->expandVisitorWith($expanded, $className, $generics, $visitor, $path);
     }
 
     /**
@@ -192,6 +233,21 @@ class Loafpan {
      * @throws ReflectionException
      */
     public function validate(string $className, mixed $input, array $typeVariables = [], array $path = []): bool {
+        return $this->validateVisitor($className, new ArrayVisitor($input), $typeVariables, $path);
+    }
+
+    /**
+     * Check if given input can be expanded into given unit
+     *
+     * @param  string  $className  The name of the class to validate expansion into, with type variables e.g. `MyClass<int>`
+     * @param  Visitor  $input  Visitor with the user input
+     * @param  array  $typeVariables  The type vars from the calling class, e.g. one could ask for `MyClass<T>` and then pass the generic parameters of `["T" => "int"]` and this function will then return `MyClass<int>`
+     * @param  array  $path  The path that has been taken to validate this user input, only useful inside expanders
+     *
+     * @return bool
+     * @throws ReflectionException
+     */
+    public function validateVisitor(string $className, Visitor $input, array $typeVariables = [], array $path = []): bool {
         [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
 
         if ($className === 'mixed') {
@@ -200,18 +256,17 @@ class Loafpan {
 
         switch ($className) {
             case 'null':
-                return $input === null;
+                return $input->isNull();
             case 'int':
-                return is_int($input);
+                return $input->isInteger();
             case 'string':
-                return is_string($input);
+                return $input->isString();
             case 'float':
-                return is_float($input);
+                return $input->isFloat();
             case 'bool':
-                return is_bool($input);
+                return $input->isBool();
             case 'array':
-                // TODO: extra validation?
-                return is_array($input);
+                return $input->isArray();
         }
 
         if (in_array($expanded, $path)) {
@@ -256,7 +311,7 @@ class Loafpan {
             if ($this->autoGenerate && $this->autoUpdate) {
                 $reflection       = new ReflectionClass($className);
                 $classFileName    = $reflection->getFileName();
-                $sourceChangeTime = filemtime($classFileName);
+                $sourceChangeTime = max(filemtime($classFileName), ExpanderGenerator::getModificationTime());
             }
 
             $expanderFile = $this->cacheDirectory . '/' . $name . '.php';
@@ -308,7 +363,7 @@ class Loafpan {
         }
 
         if ( ! str_ends_with($className, '>')) {
-            throw new \RuntimeException("$className invalid");
+            throw new RuntimeException("$className invalid");
         }
 
         $baseName = substr($className, 0, $item);
@@ -371,7 +426,7 @@ class Loafpan {
      * @return bool
      * @throws ReflectionException
      */
-    public function hasSupport(string $className, array $typeVars = []) {
+    public function hasSupport(string $className, array $typeVars = []): bool {
         $replacements = [];
 
         foreach ($typeVars as $var) {
@@ -405,6 +460,11 @@ class Loafpan {
         return true;
     }
 
+    /**
+     * Get the expected word casing for this loafpan instance
+     *
+     * @return string|null
+     */
     public function getCasing(): ?string {
         return $this->casing;
     }

@@ -20,7 +20,7 @@ class CustomExpanderExpander implements UnitExpander {
         return [];
     }
 
-    public function validate(mixed $input, array $generic = [], array $path = []): bool {
+    public function validate(mixed $visitor, array $generic = [], array $path = []): bool {
         return true;
     }
 
@@ -29,7 +29,7 @@ class CustomExpanderExpander implements UnitExpander {
         return [];
     }
 
-    public function expand(mixed $input, array $generic = [], array $path = []): mixed {
+    public function expand(mixed $visitor, array $generic = [], array $path = []): mixed {
         return new CustomExpander();
     }
 }

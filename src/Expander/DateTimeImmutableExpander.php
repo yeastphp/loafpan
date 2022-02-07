@@ -6,6 +6,8 @@ use DateTimeImmutable;
 use Yeast\Loafpan\JsonSchemaBuilder;
 use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
+use Yeast\Loafpan\Visitor;
+
 
 /**
  * An expander for the DateTimeImmutable object, expects a ISO-8601 string as input
@@ -26,18 +28,18 @@ class DateTimeImmutableExpander implements UnitExpander {
         return [];
     }
 
-    public function validate(mixed $input, array $generic = [], array $path = []): bool {
-        return is_string($input) && false !== DateTimeImmutable::createFromFormat(DATE_ISO8601, $input);
+    public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
+        return $visitor->isString() && false !== DateTimeImmutable::createFromFormat(DATE_ISO8601, $visitor->getValue());
     }
 
     /**
-     * @param  mixed  $input
+     * @param  Visitor  $visitor
      * @param  array  $generic
      *
      * @return DateTimeImmutable
      */
-    public function expand(mixed $input, array $generic = [], array $path = []): mixed {
-        return DateTimeImmutable::createFromFormat(DATE_ISO8601, $input) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
+    public function expand(Visitor $visitor, array $generic = [], array $path = []): mixed {
+        return DateTimeImmutable::createFromFormat(DATE_ISO8601, $visitor->getValue()) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
     }
 
     public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array {

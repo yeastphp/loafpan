@@ -6,6 +6,7 @@ use Ramsey\Uuid\Uuid;
 use Yeast\Loafpan\JsonSchemaBuilder;
 use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
+use Yeast\Loafpan\Visitor;
 
 
 class UuidExpander implements UnitExpander {
@@ -17,12 +18,12 @@ class UuidExpander implements UnitExpander {
         return [];
     }
 
-    public function validate(mixed $input, array $generic = [], array $path = []): bool {
-        return is_string($input) && Uuid::isValid($input);
+    public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
+        return $visitor->isString() && Uuid::isValid($visitor->getValue());
     }
 
-    public function expand(mixed $input, array $generic = [], array $path = []): mixed {
-        return Uuid::fromString($input);
+    public function expand(Visitor $visitor, array $generic = [], array $path = []): mixed {
+        return Uuid::fromString($visitor->getValue());
     }
 
     public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array {
