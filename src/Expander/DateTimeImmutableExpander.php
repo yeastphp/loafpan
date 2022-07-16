@@ -29,7 +29,7 @@ class DateTimeImmutableExpander implements UnitExpander {
     }
 
     public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
-        return $visitor->isString() && false !== DateTimeImmutable::createFromFormat(DATE_ISO8601, $visitor->getValue());
+        return $visitor->isString() && false !== DateTimeImmutable::createFromFormat(DATE_ATOM, $visitor->getValue());
     }
 
     /**
@@ -39,7 +39,7 @@ class DateTimeImmutableExpander implements UnitExpander {
      * @return DateTimeImmutable
      */
     public function expand(Visitor $visitor, array $generic = [], array $path = []): mixed {
-        return DateTimeImmutable::createFromFormat(DATE_ISO8601, $visitor->getValue()) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
+        return DateTimeImmutable::createFromFormat(DATE_ATOM, $visitor->getValue()) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
     }
 
     public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array {

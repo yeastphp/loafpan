@@ -10,7 +10,7 @@ use Yeast\Loafpan\Visitor;
 
 class MapExpander implements UnitExpander {
     private function __construct(
-      private Loafpan $loafpan,
+      private readonly Loafpan $loafpan,
     ) {
     }
 

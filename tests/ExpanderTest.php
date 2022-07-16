@@ -203,4 +203,10 @@ class ExpanderTest extends TestCase {
         $this->assertFalse($this->loafpan->validateVisitor(SnakeCase::class, new ArrayVisitor((object)['nice_gamer' => 'hello!'])));
         $this->assertTrue($this->loafpan->validateVisitor(SnakeCase::class, new ArrayVisitor(['nice_gamer' => 'hello!'])));
     }
+
+    public function testMixed() {
+        $this->assertNull($this->loafpan->expand('*', null));
+        $this->assertNull($this->loafpan->expand('mixed', null));
+        $this->assertEquals("4", $this->loafpan->expand('mixed', "4"));
+    }
 }

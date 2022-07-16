@@ -29,7 +29,7 @@ class DateTimeExpander implements UnitExpander {
     }
 
     public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
-        return $visitor->isString() && false !== DateTime::createFromFormat(DATE_ISO8601, $visitor->getValue());
+        return $visitor->isString() && false !== DateTime::createFromFormat(DATE_ATOM, $visitor->getValue());
     }
 
     /**
@@ -39,7 +39,7 @@ class DateTimeExpander implements UnitExpander {
      * @return DateTime
      */
     public function expand(Visitor $visitor, array $generic = [], array $path = []): mixed {
-        return DateTime::createFromFormat(DATE_ISO8601, $visitor->getValue()) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
+        return DateTime::createFromFormat(DATE_ATOM, $visitor->getValue()) ?: throw new \RuntimeException("Invalid ISO-8601 string given");
     }
 
     public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array {

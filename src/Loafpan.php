@@ -352,6 +352,10 @@ class Loafpan {
     }
 
     public function parseClassName(string $className, array $typeVariables = []): array {
+        if ($className === '*') {
+            $className = 'mixed';
+        }
+
         $item = strpos($className, '<');
 
         if ($item === false) {
@@ -387,7 +391,8 @@ class Loafpan {
             }
 
             if ($workingClassName[$i] === ',' && $depth === 0) {
-                $generics[] = substr($workingClassName, $lastStart, $i - $lastStart);
+                $generics[] = trim(substr($workingClassName, $lastStart, $i - $lastStart));
+                $lastStart  = $i + 1;
                 continue;
             }
 
@@ -401,7 +406,7 @@ class Loafpan {
             }
         }
 
-        $generics[] = substr($workingClassName, $lastStart, ($i - $lastStart) - 1);
+        $generics[] = trim(substr($workingClassName, $lastStart, ($i - $lastStart) - 1));
 
         return [$baseName, $generics, $workingClassName];
     }
