@@ -28,12 +28,27 @@ class ListExpander implements UnitExpander {
         return new self($loafpan);
     }
 
+    public function validateAndExpand(Visitor $visitor, array $generic = [], array $path = []): array {
+        if ( ! $visitor->isList()) {
+            return false;
+        }
+
+        $v = [];
+        $c = $visitor->length();
+        for ($i = 0; $i < $c; $i++) {
+            $v[] = $this->loafpan->expandVisitor($generic[0], $visitor->enterArray($i));
+        }
+
+        return $v;
+    }
+
     public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {
         if ( ! $visitor->isList()) {
             return false;
         }
 
         $c = $visitor->length();
+
         for ($i = 0; $i < $c; $i++) {
             if ( ! $this->loafpan->validateVisitor($generic[0], $visitor->enterArray($i))) {
                 return false;

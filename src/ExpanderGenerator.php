@@ -1003,6 +1003,11 @@ class ExpanderGenerator {
 
         $complex = $this->hasComplex($types);
         $simple  = $this->hasSimple($types);
+
+        if ($field->optional === false) {
+            $optional = false;
+          }
+
         if (($optional && $assign === null) || $complex) {
             $parameterVariable = '$field' . ucfirst($name);
         }

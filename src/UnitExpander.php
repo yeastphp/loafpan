@@ -5,22 +5,8 @@ namespace Yeast\Loafpan;
 /**
  * @template T
  */
-interface UnitExpander {
-    /**
-     * Create a new instance of this expander with given Loafpan instance
-     *
-     * @param  Loafpan  $loafpan
-     *
-     * @return self
-     */
-    public static function create(Loafpan $loafpan): UnitExpander;
-
-    /**
-     * Get a list of all available generic type vars, e.g in MyClass<T, A> this would return ['T', 'A']
-     *
-     * @return array
-     */
-    public function getGenerics(): array;
+interface UnitExpander extends BaseUnitExpander
+{
 
     /**
      * Validate that given input can be used to expand to a unit
@@ -32,17 +18,6 @@ interface UnitExpander {
      * @return bool
      */
     public function validate(Visitor $visitor, array $generic = [], array $path = []): bool;
-
-    /**
-     * Create the JSON Schema for this unit
-     *
-     * @param  JsonSchemaBuilder  $builder
-     * @param  array  $generic
-     * @param  string  $definitionName
-     *
-     * @return array
-     */
-    public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array;
 
     /**
      * Expand the input into a unit with given generic parameters, will throw on failure

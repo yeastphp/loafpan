@@ -21,7 +21,8 @@ use Yeast\Loafpan\Expander\UuidExpander;
 use Yeast\Loafpan\Visitor\ArrayVisitor;
 
 
-class Loafpan {
+class Loafpan
+{
     /**
      * @param  string  $cacheDirectory  The directory where Loafpan should write it's code generated php files
      * @param  bool  $autoGenerate  Generate expander code on demand
@@ -44,7 +45,8 @@ class Loafpan {
         }
     }
 
-    public function getCacheDirectory(): string {
+    public function getCacheDirectory(): string
+    {
         return $this->cacheDirectory;
     }
 
@@ -58,7 +60,8 @@ class Loafpan {
      *
      * @return void
      */
-    public function registerExpander(string $className, UnitExpander $expander) {
+    public function registerExpander(string $className, UnitExpander $expander)
+    {
         $this->registeredExpanders[$className] = $expander;
     }
 
@@ -71,7 +74,8 @@ class Loafpan {
      * @return string
      * @throws CaseConverterException
      */
-    public function getFieldName(string $name, ?Unit $unit): string {
+    public function getFieldName(string $name, ?Unit $unit): string
+    {
         $casing = $unit?->casing ?: $this->casing;
 
         if ($casing === null) {
@@ -103,7 +107,8 @@ class Loafpan {
      *
      * @return array<string, UnitExpander>
      */
-    public static function getDefaultExpanders(Loafpan $loafpan): array {
+    public static function getDefaultExpanders(Loafpan $loafpan): array
+    {
         return [
           'list'                   => ListExpander::create($loafpan),
           'map'                    => MapExpander::create($loafpan),
@@ -147,7 +152,8 @@ class Loafpan {
      * @template T
      *
      */
-    public function expandInto(mixed $input, string $className, array $generics = []): mixed {
+    public function expandInto(mixed $input, string $className, array $generics = []): mixed
+    {
         $fullName = $className;
         if (count($generics) > 0) {
             $fullName .= '<' . implode(",", $generics) . '>';
@@ -168,7 +174,8 @@ class Loafpan {
      * @return mixed
      * @throws ReflectionException
      */
-    public function expand(string $className, mixed $input, array $typeVariables = [], array $path = []): mixed {
+    public function expand(string $className, mixed $input, array $typeVariables = [], array $path = []): mixed
+    {
         [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
 
         return $this->expandWith($expanded, $className, $generics, $input, $path);
@@ -177,14 +184,16 @@ class Loafpan {
     /**
      * @throws ReflectionException
      */
-    private function expandWith(string $fullName, string $className, array $generics, mixed $input, array $path): mixed {
+    private function expandWith(string $fullName, string $className, array $generics, mixed $input, array $path): mixed
+    {
         return $this->expandVisitorWith($fullName, $className, $generics, new ArrayVisitor($input), $path);
     }
 
     /**
      * @throws ReflectionException
      */
-    private function expandVisitorWith(string $fullName, string $className, array $generics, Visitor $visitor, array $path): mixed {
+    private function expandVisitorWith(string $fullName, string $className, array $generics, Visitor $visitor, array $path): mixed
+    {
         if ($className === 'int' || $className === 'string' || $className === 'bool' || $className === 'float' || $className === 'array' || $className === 'null' || $className === 'mixed') {
             if ( ! $this->validateVisitor($className, $visitor)) {
                 throw new RuntimeException("Couldn't expand input of type " . gettype($visitor->getValue()) . " into " . $className);
@@ -199,6 +208,16 @@ class Loafpan {
 
         $expander = $this->getExpander($className);
         $path[]   = $fullName;
+
+        if ($expander instanceof UnitExpanderV2) {
+            [$success, $result] = $expander->expandAndValidate($visitor, $generics, $path);
+
+            if ( ! $success) {
+                throw new RuntimeException("Expanding failed: " . $result);
+            }
+
+            return $result;
+        }
 
         return $expander->expand($visitor, $generics, $path);
     }
@@ -215,7 +234,8 @@ class Loafpan {
      * @return mixed
      * @throws ReflectionException
      */
-    public function expandVisitor(string $className, Visitor $visitor, array $typeVariables = [], array $path = []): mixed {
+    public function expandVisitor(string $className, Visitor $visitor, array $typeVariables = [], array $path = []): mixed
+    {
         [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
 
         return $this->expandVisitorWith($expanded, $className, $generics, $visitor, $path);
@@ -232,7 +252,8 @@ class Loafpan {
      * @return bool
      * @throws ReflectionException
      */
-    public function validate(string $className, mixed $input, array $typeVariables = [], array $path = []): bool {
+    public function validate(string $className, mixed $input, array $typeVariables = [], array $path = []): bool
+    {
         return $this->validateVisitor($className, new ArrayVisitor($input), $typeVariables, $path);
     }
 
@@ -247,7 +268,8 @@ class Loafpan {
      * @return bool
      * @throws ReflectionException
      */
-    public function validateVisitor(string $className, Visitor $input, array $typeVariables = [], array $path = []): bool {
+    public function validateVisitor(string $className, Visitor $input, array $typeVariables = [], array $path = []): bool
+    {
         [$className, $generics, $expanded] = $this->parseClassName($className, $typeVariables);
 
         if ($className === 'mixed') {
@@ -290,7 +312,8 @@ class Loafpan {
      * @return ?UnitExpander<T>
      * @throws ReflectionException
      */
-    public function getExpander(string $className, bool $generateOnMissing = true): ?UnitExpander {
+    public function getExpander(string $className, bool $generateOnMissing = true): ?UnitExpander
+    {
         return $this->registeredExpanders[$className] ?? ($this->cachedExpanders[$className] ?? ($generateOnMissing ? $this->createExpander($className) : null));
     }
 
@@ -302,7 +325,8 @@ class Loafpan {
      * @return UnitExpander<T>
      * @throws ReflectionException
      */
-    private function createExpander(string $className): UnitExpander {
+    private function createExpander(string $className): UnitExpander
+    {
         $expanderClass = self::$knownCustomExpanders[$className] ?? null;
         if ($expanderClass === null) {
             $name = ExpanderGenerator::createGeneratedClassName($className, $this->casing);
@@ -340,7 +364,8 @@ class Loafpan {
     /**
      * @throws ReflectionException
      */
-    private function generateExpander(string $className): string {
+    private function generateExpander(string $className): string
+    {
         $generator = new ExpanderGenerator($className, $this);
         $generator->collectInfo();
 
@@ -351,7 +376,8 @@ class Loafpan {
         return $generator->generateUnitExpander();
     }
 
-    public function parseClassName(string $className, array $typeVariables = []): array {
+    public function parseClassName(string $className, array $typeVariables = []): array
+    {
         if ($className === '*') {
             $className = 'mixed';
         }
@@ -418,7 +444,8 @@ class Loafpan {
      *
      * @return array
      */
-    public function jsonSchema(string $className): array {
+    public function jsonSchema(string $className): array
+    {
         return (new JsonSchemaBuilder($this))->withRoot($className);
     }
 
@@ -431,7 +458,8 @@ class Loafpan {
      * @return bool
      * @throws ReflectionException
      */
-    public function hasSupport(string $className, array $typeVars = []): bool {
+    public function hasSupport(string $className, array $typeVars = []): bool
+    {
         $replacements = [];
 
         foreach ($typeVars as $var) {
@@ -470,7 +498,8 @@ class Loafpan {
      *
      * @return string|null
      */
-    public function getCasing(): ?string {
+    public function getCasing(): ?string
+    {
         return $this->casing;
     }
 }
