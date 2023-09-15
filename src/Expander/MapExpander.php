@@ -12,12 +12,13 @@ use Yeast\Loafpan\Visitor;
 class MapExpander implements UnitExpander, UnitExpanderV2
 {
     private function __construct(
-      private readonly Loafpan $loafpan,
-    ) {
+        private readonly Loafpan $loafpan,
+    )
+    {
     }
 
     /**
-     * @param  Loafpan  $loafpan
+     * @param Loafpan $loafpan
      *
      * @return self
      */
@@ -28,21 +29,21 @@ class MapExpander implements UnitExpander, UnitExpanderV2
 
     public function validate(Visitor $visitor, array $generic = [], array $path = []): bool
     {
-        if ( ! $visitor->isObject()) {
+        if (!$visitor->isObject()) {
             return false;
         }
 
-        $keyType   = isset($generic[1]) ? $generic[0] : 'mixed';
+        $keyType = isset($generic[1]) ? $generic[0] : 'mixed';
         $valueType = $generic[1] ?? $generic[0] ?? 'mixed';
 
 
         $keys = $visitor->keys();
         foreach ($keys as $key) {
-            if ( ! $this->loafpan->validate($keyType, $key)) {
+            if (!$this->loafpan->validate($keyType, $key)) {
                 return false;
             }
 
-            if ( ! $this->loafpan->validateVisitor($valueType, $visitor->enterObject($key))) {
+            if (!$this->loafpan->validateVisitor($valueType, $visitor->enterObject($key))) {
                 return false;
             }
         }
@@ -54,7 +55,7 @@ class MapExpander implements UnitExpander, UnitExpanderV2
     {
         $map = [];
 
-        $keyType   = isset($generic[1]) ? $generic[0] : 'mixed';
+        $keyType = isset($generic[1]) ? $generic[0] : 'mixed';
         $valueType = $generic[1] ?? $generic[0] ?? 'mixed';
 
 
@@ -76,21 +77,23 @@ class MapExpander implements UnitExpander, UnitExpanderV2
     public function buildSchema(JsonSchemaBuilder $builder, array $generic, string $definitionName): array
     {
         return [
-          "type"                 => "object",
-          "additionalProperties" => $builder->getReference($generic[0]),
+            "type" => "object",
+            "additionalProperties" => $builder->getReference($generic[0]),
         ];
     }
 
     public function expandAndValidate(Visitor $visitor, array $generic = [], array $path = []): array
     {
-        if ( ! $visitor->isObject()) {
+        if (!$visitor->isObject()) {
             return [false, null];
         }
 
-        $keyType   = isset($generic[1]) ? $generic[0] : 'mixed';
+        $keyType = isset($generic[1]) ? $generic[0] : 'mixed';
         $valueType = $generic[1] ?? $generic[0] ?? 'mixed';
 
         $keys = $visitor->keys();
+        $map = [];
+
         foreach ($keys as $key) {
             $key = $this->loafpan->expand($keyType, $key);
 
