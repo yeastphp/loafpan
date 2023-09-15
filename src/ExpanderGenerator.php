@@ -198,15 +198,15 @@ class ExpanderGenerator {
 
             $reasons = [];
             if ( ! $property->isPublic()) {
-                $reasons[] = 'is not public';
+                $reasons[] = 'it is not public';
             }
 
             if (PHP_VERSION_ID >= 80100 && $property->isReadOnly()) {
-                $reasons[] = 'is read-only';
+                $reasons[] = 'it is read-only';
             }
 
             if (count($reasons) > 0) {
-                $this->errors[] = "Can't set field " . $property->getName() . 'because ' . implode(" and ", $reasons);
+                $this->errors[] = "Can't set field " . $property->getName() . ' because ' . implode(" and ", $reasons);
                 continue;
             }
 
