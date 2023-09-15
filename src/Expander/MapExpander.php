@@ -84,7 +84,7 @@ class MapExpander implements UnitExpander, UnitExpanderV2
     public function expandAndValidate(Visitor $visitor, array $generic = [], array $path = []): array
     {
         if ( ! $visitor->isObject()) {
-            return false;
+            return [false, null];
         }
 
         $keyType   = isset($generic[1]) ? $generic[0] : 'mixed';
@@ -97,6 +97,6 @@ class MapExpander implements UnitExpander, UnitExpanderV2
             $map[$key] = $this->loafpan->expandVisitor($valueType, $visitor->enterObject($key));
         }
 
-        return $map;
+        return [true, $map];
     }
 }

@@ -5,6 +5,7 @@ namespace Yeast\Loafpan\Expander;
 use Yeast\Loafpan\JsonSchemaBuilder;
 use Yeast\Loafpan\Loafpan;
 use Yeast\Loafpan\UnitExpander;
+use Yeast\Loafpan\UnitExpanderV2;
 use Yeast\Loafpan\Visitor;
 
 
@@ -13,7 +14,7 @@ use Yeast\Loafpan\Visitor;
  *
  * @implements UnitExpander<array>
  */
-class ListExpander implements UnitExpander {
+class ListExpander implements UnitExpander, UnitExpanderV2 {
     private function __construct(
       private Loafpan $loafpan,
     ) {
@@ -28,9 +29,9 @@ class ListExpander implements UnitExpander {
         return new self($loafpan);
     }
 
-    public function validateAndExpand(Visitor $visitor, array $generic = [], array $path = []): array {
+    public function expandAndValidate(Visitor $visitor, array $generic = [], array $path = []): array {
         if ( ! $visitor->isList()) {
-            return false;
+            return [false, null];
         }
 
         $v = [];
@@ -39,7 +40,7 @@ class ListExpander implements UnitExpander {
             $v[] = $this->loafpan->expandVisitor($generic[0], $visitor->enterArray($i));
         }
 
-        return $v;
+        return [true, $v];
     }
 
     public function validate(Visitor $visitor, array $generic = [], array $path = []): bool {

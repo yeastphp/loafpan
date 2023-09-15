@@ -7,9 +7,9 @@ interface BaseUnitExpander
     /**
      * Create a new instance of this expander with given Loafpan instance
      *
-     * @param  Loafpan  $loafpan
+     * @param Loafpan $loafpan
      *
-     * @return self
+     * @return UnitExpander
      */
     public static function create(Loafpan $loafpan): UnitExpander;
 
@@ -23,9 +23,9 @@ interface BaseUnitExpander
     /**
      * Create the JSON Schema for this unit
      *
-     * @param  JsonSchemaBuilder  $builder
-     * @param  array  $generic
-     * @param  string  $definitionName
+     * @param JsonSchemaBuilder $builder
+     * @param array $generic
+     * @param string $definitionName
      *
      * @return array
      */
